@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HangOut — Встречи с друзьями</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        :root {
+            --bg: #0e1621; --bg2: #17212b; --bg3: #1e2c3a;
+            --msg-in: #182533; --msg-out: #2b5278; --accent: #6ab3f3;
+            --accent-h: #5a9fd4; --txt: #f5f5f5; --txt2: #8b9bab;
+            --muted: #5e6d7e; --border: #1e2c3a; --pin: #f0c040;
+            --green: #4dc95f; --red: #e55858; --purple: #a77bfa;
+            --ev-bg: #1b3050;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--txt); height:100dvh; overflow:hidden; }
+        .app { display:flex; height:100%; position:relative; }
+        
+        /* SIDEBAR */
+        .sidebar { width:100%; height:100%; background:var(--bg2); display:flex; flex-direction:column; position:absolute; z-index:10; }
+        .sidebar-h { padding:12px 16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); min-height:56px; }
+        .chat-list { flex:1; overflow-y:auto; overscroll-behavior:contain; }
+        .chat-item { display:flex; align-items:center; padding:12px 16px; cursor:pointer; border-bottom:1px solid var(--border); }
+        .chat-item.active { background:var(--accent); }
+        .chat-item.active .cn, .chat-item.active .cp { color:#fff!important; }
+        .cav { width:48px; height:48px; border-radius:50%; margin-right:12px; display:flex; align-items:center; justify-content:center; font-size:20px; background:linear-gradient(135deg,var(--accent),var(--purple)); flex-shrink:0; }
+        .ci { flex:1; min-width:0; }
+        .cn { font-weight:600; font-size:15px; }
+        .cp { font-size:13px; color:var(--txt2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .badge { background:var(--green); color:#fff; font-size:11px; font-weight:600; min-width:20px; height:20px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0 5px; }
+        
+        /* MAIN CHAT */
+        .main-chat { width:100%; height:100%; background:var(--bg); display:flex; flex-direction:column; position:absolute; z-index:5; transform:translateX(100%); transition:transform .3s; }
+        .main-chat.active { transform:translateX(0); z-index:20; }
+        .ch { padding:10px 16px; background:var(--bg2); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; min-height:56px; z-index:2; }
+        .chl { display:flex; align-items:center; gap:10px; }
+        .chi h3 { font-size:16px; font-weight:600; }
+        .chi p { font-size:12px; color:var(--txt2); }
+        .cha { display:flex; gap:4px; }
+        .bi { background:none; border:none; color:var(--txt2); cursor:pointer; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; min-width:40px; min-height:40px; }
+        .pb { background:var(--bg3); padding:8px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; border-bottom:1px solid var(--border); }
+        .pb.hidden { display:none; }
+        .pt { font-size:13px; color:var(--txt2); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ma { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:6px; z-index:1; overscroll-behavior:contain; }
+        .mg { display:flex; gap:10px; max-width:85%; animation:mi .3s; }
+        @keyframes mi { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .mg.out { align-self:flex-end; flex-direction:row-reverse; }
+        .mav { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; align-self:flex-end; }
+        .mc { display:flex; flex-direction:column; gap:2px; }
+        .ms { font-size:12px; font-weight:600; padding:0 6px; }
+        .mb { padding:10px 14px; border-radius:16px; font-size:15px; line-height:1.45; word-wrap:break-word; }
+        .mg.in .mb { background:var(--msg-in); border-bottom-left-radius:4px; }
+        .mg.out .mb { background:var(--msg-out); border-bottom-right-radius:4px; }
+        .mt { font-size:11px; color:var(--muted); padding-right:4px; text-align:right; }
+        .mab { display:flex; justify-content:flex-end; }
+        .mabtn { background:none; border:none; color:var(--muted); cursor:pointer; padding:4px; font-size:16px; min-width:32px; min-height:32px; }
+        .mre { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+        .re { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:3px 8px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:3px; }
+        .re.act { border-color:var(--accent); background:rgba(106,179,243,.15); }
+        .evm { background:var(--ev-bg)!important; border:1px solid rgba(106,179,243,.3)!important; border-radius:16px!important; padding:12px!important; }
+        .evh { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+        .evd { font-size:13px; color:var(--txt2); margin-bottom:3px; }
+        .eva { display:flex; gap:6px; margin-top:8px; }
+        .evb { flex:1; padding:8px; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; min-height:36px; }
+        .evby { background:var(--green); color:#fff; }
+        .evbm, .evbn { background:var(--bg3); color:var(--txt2); }
+        .evv { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:12px; color:var(--txt2); }
+        .ds { text-align:center; margin:16px 0; }
+        .ds span { background:rgba(0,0,0,.3); color:var(--txt2); font-size:13px; padding:6px 12px; border-radius:12px; }
+        .ia { padding:10px 16px; background:var(--bg2); border-top:1px solid var(--border); display:flex; align-items:flex-end; gap:8px; z-index:2; padding-bottom:16px; }
+        .inp { width:100%; padding:10px 12px; background:var(--bg3); border:none; border-radius:18px; color:var(--txt); font-size:16px; font-family:inherit; outline:none; resize:none; max-height:100px; min-height:38px; line-height:1.4; }
+        .sb { width:40px; height:40px; border-radius:50%; background:var(--accent); border:none; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; min-width:40px; min-height:40px; }
+        .ep { position:absolute; bottom:54px; left:12px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:8px; display:none; z-index:50; width:260px; }
+        .ep.act { display:block; }
+        .eg { display:grid; grid-template-columns:repeat(8,1fr); gap:6px; }
+        .ei { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; border-radius:6px; }
+        .md { position:fixed; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:6px; min-width:160px; box-shadow:0 4px 12px rgba(0,0,0,.5); z-index:60; display:none; }
+        .md.act { display:block; }
+        .mdi { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:6px; cursor:pointer; font-size:14px; }
+        .mdi:hover { background:var(--bg3); }
+        .mdi.dng { color:var(--red); }
+        
+        /* PANEL */
+        .panel { width:100%; height:100%; background:var(--bg2); display:flex; flex-direction:column; position:absolute; z-index:30; transform:translateX(100%); transition:transform .3s; }
+        .panel.act { transform:translateX(0); }
+        .ph { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+        .ph h3 { font-size:16px; }
+        .pts { display:flex; border-bottom:1px solid var(--border); }
+        .pt { flex:1; padding:10px; text-align:center; font-size:12px; font-weight:600; color:var(--txt2); cursor:pointer; border-bottom:2px solid transparent; background:none; }
+        .pt.act { color:var(--accent); border-bottom-color:var(--accent); }
+        .pc { flex:1; overflow-y:auto; padding:12px; }
+        .pi { background:var(--bg3); border-radius:8px; padding:10px; margin-bottom:8px; border-left:3px solid var(--pin); }
+        .pit { font-size:14px; line-height:1.4; }
+        .evi { background:var(--ev-bg); border-radius:8px; padding:10px; margin-bottom:8px; }
+        .ni { text-align:center; padding:40px 20px; color:var(--muted); }
+        .nii { font-size:36px; margin-bottom:8px; }
+        .mit { display:flex; align-items:center; gap:10px; padding:8px 0; }
+        .mav2 { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; }
+        
+        /* MODAL */
+        .mo { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:flex-end; justify-content:center; z-index:100; opacity:0; visibility:hidden; transition:all .3s; }
+        .mo.act { opacity:1; visibility:visible; }
+        .mdl { background:var(--bg2); border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; transform:translateY(100%); transition:transform .3s; }
+        .mo.act .mdl { transform:translateY(0); }
+        .mh { padding:20px 20px 10px; display:flex; align-items:center; justify-content:space-between; }
+        .mb2 { padding:16px 20px; }
+        .fg { margin-bottom:16px; }
+        .fg label { display:block; font-size:13px; font-weight:600; color:var(--txt2); margin-bottom:6px; }
+        .fg input, .fg textarea, .fg select { width:100%; padding:12px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; color:var(--txt); font-size:16px; font-family:inherit; outline:none; }
+        .fg textarea { resize:vertical; min-height:70px; }
+        .mf { padding:10px 20px 20px; display:flex; gap:10px; justify-content:flex-end; }
+        .btn { padding:12px 20px; border:none; border-radius:10px; font-size:15px; font-weight:600; cursor:pointer; min-height:44px; }
+        .btnp { background:var(--accent); color:#fff; }
+        .btns { background:var(--bg3); color:var(--txt2); }
+        .ea { font-size:22px; cursor:pointer; padding:6px; border-radius:6px; }
+        .ea.sel { outline:2px solid var(--accent); background:var(--bg3); }
+        .status { display:inline-block; padding:6px 12px; border-radius:8px; font-size:13px; margin:8px 0; }
+        .stc { background:rgba(106,179,243,.2); color:var(--accent); }
+        .sto { background:rgba(77,201,95,.2); color:var(--green); }
+        .ste { background:rgba(229,88,88,.2); color:var(--red); }
+        
+        @media (min-width:900px) {
+            .sidebar { position:relative; width:340px; }
+            .main-chat { position:relative; transform:none; }
+            .panel { position:relative; width:300px; transform:none; border-left:1px solid var(--border); }
+            .mo { align-items:center; }
+            .mdl { border-radius:16px; max-height:80vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-h"><div style="flex:1; text-align:center; font-weight:600;">🎉 HangOut</div></div>
+            <div class="chat-list" id="chatList"></div>
+        </div>
+        <div class="main-chat" id="mainChat">
+            <div class="ch">
+                <div class="chl">
+                    <button class="bi" onclick="goBack()" id="backBtn" style="display:none">←</button>
+                    <div class="cav">👥</div>
+                    <div class="chi"><h3 id="hTitle">Комната</h3><p id="hSub"></p></div>
+                </div>
+                <div class="cha">
+                    <button class="bi" onclick="togglePanel('pinned')">📌</button>
+                    <button class="bi" onclick="openEv()">📅</button>
+                    <button class="bi" onclick="togglePanel('members')">👤</button>
+                </div>
+            </div>
+            <div class="pb hidden" id="pBar" onclick="togglePanel('pinned')"><span style="color:var(--pin)">📌</span><div class="pt" id="pText"></div></div>
+            <div class="ma" id="msgs"><div class="ds"><span>Сегодня</span></div></div>
+            <div class="ia">
+                <button class="bi" onclick="toggleEp()" style="color:var(--txt2)">😊</button>
+                <textarea class="inp" id="mi" placeholder="Написать..." rows="1" onkeydown="hk(event)" oninput="ar(this)"></textarea>
+                <button class="bi" onclick="openEv()" style="color:var(--txt2)">📅</button>
+                <button class="sb" onclick="send()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+            <div class="ep" id="epicker"><div class="eg" id="egrid"></div></div>
+        </div>
+        <div class="panel" id="rPanel">
+            <div class="ph"><h3>📌 Панель</h3><button class="bi" onclick="closePanel()">✕</button></div>
+            <div class="pts">
+                <button class="pt act" onclick="swTab('pinned',this)">📌 Идеи</button>
+                <button class="pt" onclick="swTab('events',this)">📅 Встречи</button>
+                <button class="pt" onclick="swTab('members',this)">👥 Люди</button>
+            </div>
+            <div class="pc" id="pContent"></div>
+        </div>
+    </div>
+
+    <!-- Room Modal -->
+    <div class="mo act" id="rModal">
+        <div class="mdl">
+            <div class="mh"><h2>🎉 HangOut</h2></div>
+            <div class="mb2" id="rBody">
+                <div style="text-align:center; color:var(--txt2); margin-bottom:16px; font-size:14px;">Создайте комнату или войдите по коду</div>
+                <button class="btn btnp" style="width:100%; margin-bottom:12px;" onclick="showCreate()">➕ Создать комнату</button>
+                <button class="btn btns" style="width:100%;" onclick="showJoin()">🔗 Войти по коду</button>
+            </div>
+            <div class="mf" id="rFooter"></div>
+        </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div class="mo" id="evModal">
+        <div class="mdl">
+            <div class="mh"><h2>📅 Встреча</h2><button class="bi" onclick="closeEv()">✕</button></div>
+            <div class="mb2">
+                <div class="fg"><label>Название</label><input id="evT" placeholder="Киномарафон"></div>
+                <div class="fg"><label>Дата</label><input type="date" id="evD"></div>
+                <div class="fg"><label>Время</label><input type="time" id="evTi"></div>
+                <div class="fg"><label>Место</label><input id="evL" placeholder="ТЦ Горизонт"></div>
+                <div class="fg"><label>Описание</label><textarea id="evDe" placeholder="Что планируем..."></textarea></div>
+                <div class="fg"><label>Тип</label><select id="evTy"><option value="🎬 Кино">🎬 Кино</option><option value="🎮 Игры">🎮 Игры</option><option value="🍕 Еда">🍕 Еда</option><option value="🏃 Отдых">🏃 Отдых</option><option value="☕ Кофе">☕ Кофе</option></select></div>
+            </div>
+            <div class="mf"><button class="btn btns" onclick="closeEv()">Отмена</button><button class="btn btnp" onclick="mkEv()">Создать</button></div>
+        </div>
+    </div>
+
+    <div class="md" id="mdd">
+        <div class="mdi" onclick="pinM()">📌 Закрепить</div>
+        <div class="mdi" onclick="addRe()">👍 Лайк</div>
+        <div class="mdi" onclick="copyM()">📋 Копировать</div>
+        <div class="mdi dng" onclick="delM()">🗑️ Удалить</div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script>
+        // ===== ВСТАВЬТЕ СЮДА ВАШИ ДАННЫЕ FIREBASE =====
+        const firebaseConfig = {
+            apiKey: "ВСТАВЬТЕ_API_KEY",
+            authDomain: "ВАШ_ПРОЕКТ.firebaseapp.com",
+            databaseURL: "https://ВАШ_ПРОЕКТ-default-rtdb.firebaseio.com",
+            projectId: "ВАШ_ПРОЕКТ",
+            storageBucket: "ВАШ_ПРОЕКТ.appspot.com",
+            messagingSenderId: "000000000000",
+            appId: "1:000000000000:web:000000000000"
+        };
+        // ================================================
+
+        let db, roomRef, msgRef, membersRef;
+        let roomId = null, currentUser = null, selMsg = null;
+        let state = { messages: [], members: {} };
+        let connected = false;
+
+        // Check URL for room code
+        const urlCode = new URLSearchParams(window.location.search).get('code') || new URLSearchParams(window.location.search).get('room');
+        if (urlCode) {
+            roomId = urlCode.toUpperCase();
+        }
+
+        // ===== FIREBASE INIT =====
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        } catch(e) {
+            console.error("Firebase init error:", e);
+            document.getElementById('rBody').innerHTML = `
+                <div style="text-align:center; color:var(--red); margin-bottom:12px;">
+                    ❌ Ошибка подключения Firebase<br><br>
+                    <span style="color:var(--txt2); font-size:13px;">
+                        Вставьте ваши данные Firebase в строки 290-297 кода.<br><br>
+                        <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent);">Создать проект Firebase →</a>
+                    </span>
+                </div>`;
+        }
+
+        // ===== ROOM FUNCTIONS =====
+        function showCreate() {
+            roomId = Math.random().toString(36).substring(2,6).toUpperCase();
+            document.getElementById('rBody').innerHTML = `
+                <div style="text-align:center;">
+                    <div style="color:var(--txt2); margin-bottom:8px;">Код комнаты:</div>
+                    <div style="font-size:32px; font-weight:700; letter-spacing:4px; margin:12px 0; color:var(--accent);" id="rCode">${roomId}</div>
+                    <button class="btn btns" style="width:100%; margin-bottom:8px;" onclick="copyCode()">📋 Копировать код</button>
+                    <div id="rStatus"></div>
+                </div>`;
+            document.getElementById('rFooter').innerHTML = `
+                <div style="width:100%;">
+                    <div class="fg"><label>Ваше имя</label><input id="hName" value="Я"></div>
+                    <div class="fg"><label>Эмодзи</label>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            ${['😎','🐶','🌸','🚀','🎧','🍕','🐱','🌟'].map(e=>`<span class="ea ${e==='😎'?'sel':''}" data-e="${e}" onclick="selE(this)">${e}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn btnp" onclick="startHost()">Создать и войти</button>
+                </div>`;
+        }
+
+        function showJoin() {
+            document.getElementById('rBody').innerHTML = `
+                <div style="text-align:center;">
+                    <div class="fg"><label>Код комнаты</label><input id="jCode" placeholder="Напр: A1B2" style="text-align:center;font-size:24px;letter-spacing:4px;font-weight:700;" maxlength="6"></div>
+                    <div id="jStatus"></div>
+                </div>`;
+            document.getElementById('rFooter').innerHTML = `
+                <div style="width:100%;">
+                    <div class="fg"><label>Ваше имя</label><input id="gName" placeholder="Имя"></div>
+                    <div class="fg"><label>Эмодзи</label>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            ${['😎','🐶','🌸','🚀','🎧','🍕','🐱','🌟'].map(e=>`<span class="ea ${e==='😎'?'sel':''}" data-e="${e}" onclick="selE(this)">${e}</span>`).join('')}
+                        </div>
+                    </div>
+                    <button class="btn btnp" onclick="joinRoom()">Войти</button>
+                </div>`;
+        }
+
+        function selE(el) { el.parentElement.querySelectorAll('.ea').forEach(e=>e.classList.remove('sel')); el.classList.add('sel'); }
+        function copyCode() { navigator.clipboard.writeText(roomId).then(()=>alert('Код: '+roomId)); }
+
+        function startHost() {
+            const name = document.getElementById('hName').value.trim() || 'Хост';
+            const em = document.querySelector('#rBody .ea.sel')?.dataset.e || '😎';
+            currentUser = { id: uid(), name, em, color: rndColor(), host: true };
+            
+            document.getElementById('rStatus').innerHTML = '<div class="status stc">Подключение...</div>';
+            
+            // Setup room in Firebase
+            roomRef = db.ref('rooms/' + roomId);
+            msgRef = roomRef.child('messages');
+            membersRef = roomRef.child('members');
+            
+            // Create room data
+            roomRef.set({
+                created: firebase.database.ServerValue.TIMESTAMP,
+                host: currentUser.id
+            }).then(() => {
+                enterChat();
+            }).catch(err => {
+                document.getElementById('rStatus').innerHTML = `<div class="status ste">Ошибка: ${err.message}<br><br><span style="color:var(--txt2); font-size:12px;">Проверьте настройки Firebase: Realtime Database создан и правила установлены на "test mode"</span></div>`;
+            });
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('jCode').value.trim().toUpperCase();
+            const name = document.getElementById('gName').value.trim() || 'Гость';
+            const em = document.querySelector('#rBody .ea.sel')?.dataset.e || '😎';
+            
+            if (!code) return document.getElementById('jStatus').innerHTML = '<div class="status ste">Введите код</div>';
+            
+            roomId = code;
+            currentUser = { id: uid(), name, em, color: rndColor(), host: false };
+            
+            document.getElementById('jStatus').innerHTML = '<div class="status stc">Поиск комнаты...</div>';
+            
+            roomRef = db.ref('rooms/' + roomId);
+            msgRef = roomRef.child('messages');
+            membersRef = roomRef.child('members');
+            
+            // Check if room exists
+            roomRef.once('value').then(snap => {
+                if (!snap.exists()) {
+                    document.getElementById('jStatus').innerHTML = '<div class="status ste">Комната не найдена. Проверьте код.</div>';
+                    return;
+                }
+                enterChat();
+            }).catch(err => {
+                document.getElementById('jStatus').innerHTML = `<div class="status ste">Ошибка: ${err.message}</div>`;
+            });
+        }
+
+        function enterChat() {
+            // Add member
+            membersRef.child(currentUser.id).set(currentUser);
+            
+            // Remove on disconnect
+            membersRef.child(currentUser.id).onDisconnect().remove();
+            
+            // Listen for messages
+            msgRef.on('child_added', snap => {
+                const msg = snap.val();
+                if (!state.messages.find(m => m.id === msg.id)) {
+                    state.messages.push(msg);
+                    renderMsgs(); renderChat(); updatePinBar();
+                }
+            });
+            
+            msgRef.on('child_changed', snap => {
+                const msg = snap.val();
+                const idx = state.messages.findIndex(m => m.id === msg.id);
+                if (idx > -1) {
+                    state.messages[idx] = msg;
+                    renderMsgs(); updatePinBar();
+                }
+            });
+            
+            msgRef.on('child_removed', snap => {
+                const msgId = snap.key;
+                state.messages = state.messages.filter(m => m.id !== msgId);
+                renderMsgs(); updatePinBar();
+            });
+            
+            // Listen for members
+            membersRef.on('value', snap => {
+                state.members = snap.val() || {};
+                document.getElementById('hSub').textContent = Object.keys(state.members).length + ' онлайн';
+                renderChat();
+            });
+            
+            document.getElementById('rModal').classList.remove('act');
+            initApp();
+        }
+
+        function initApp() {
+            renderChat();
+            document.getElementById('hTitle').textContent = 'Комната: ' + roomId;
+            renderEp();
+            updatePinBar();
+            const t = new Date(); t.setDate(t.getDate()+1);
+            const ed = document.getElementById('evD'); if(ed) ed.value = t.toISOString().split('T')[0];
+            const et = document.getElementById('evTi'); if(et) et.value = '19:00';
+            
+            document.addEventListener('click', e => {
+                if(!document.getElementById('mdd').contains(e.target)) document.getElementById('mdd').classList.remove('act');
+                if(!document.getElementById('epicker').contains(e.target) && !e.target.closest('.bi')) document.getElementById('epicker').classList.remove('act');
+            });
+        }
+
+        // ===== RENDER =====
+        function renderChat() {
+            const last = state.messages[state.messages.length-1];
+            document.getElementById('chatList').innerHTML = `
+                <div class="chat-item active" onclick="openChat()">
+                    <div class="cav">👥</div>
+                    <div class="ci">
+                        <div class="cn">Комната: ${roomId}</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="cp">${last ? (state.members[last.uid]?.name||''): last.text.slice(0,30)}</span>
+                            <span class="badge">${Object.keys(state.members).length}</span>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function openChat() {
+            document.getElementById('mainChat').classList.add('act');
+            document.getElementById('backBtn').style.display = 'flex';
+            renderMsgs();
+        }
+
+        function renderMsgs() {
+            const a = document.getElementById('msgs');
+            a.innerHTML = '<div class="ds"><span>Сегодня</span></div>';
+            state.messages.forEach(msg => {
+                const u = state.members[msg.uid] || { name: 'Участник', color: '#888', em: '👤' };
+                const me = msg.uid === currentUser?.id;
+                const d = document.createElement('div');
+                d.className = `mg ${me?'out':'in'}`;
+                d.dataset.id = msg.id;
+                
+                if (msg.ev) {
+                    const v = msg.ev.votes || { yes:[], no:[], maybe:[] };
+                    d.innerHTML = `<div class="mc" style="max-width:300px">
+                        <div class="mb evm">
+                            <div class="evh"><span>${msg.ev.type}</span><strong>${esc(msg.ev.title)}</strong></div>
+                            <div class="evd">📅 ${msg.ev.date}</div>
+                            <div class="evd">🕐 ${msg.ev.time}</div>
+                            <div class="evd">📍 ${esc(msg.ev.loc)}</div>
+                            ${msg.ev.de ? `<div class="evd">📝 ${esc(msg.ev.de)}</div>` : ''}
+                            <div class="eva">
+                                <button class="evb evby" onclick="vote('${msg.id}','yes')">✓ Иду</button>
+                                <button class="evb evbm" onclick="vote('${msg.id}','maybe')">🤔 Может</button>
+                                <button class="evb evbn" onclick="vote('${msg.id}','no')">✕ Нет</button>
+                            </div>
+                            <div class="evv">
+                                ${v.yes.length ? `<div>✅ ${v.yes.map(i=>state.members[i]?.name).join(', ')}</div>` : ''}
+                                ${v.maybe.length ? `<div>🤔 ${v.maybe.map(i=>state.members[i]?.name).join(', ')}</div>` : ''}
+                                ${v.no.length ? `<div>❌ ${v.no.map(i=>state.members[i]?.name).join(', ')}</div>` : ''}
+                                ${!v.yes.length && !v.maybe.length && !v.no.length ? '<div>Пока нет голосов</div>' : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                } else {
+                    d.innerHTML = `
+                        <div class="mav" style="background:${u.color}">${u.em}</div>
+                        <div class="mc">
+                            ${!me ? `<span class="ms" style="color:${u.color}">${u.name}</span>` : ''}
+                            <div class="mb">${esc(msg.text)}</div>
+                            <div class="mt">${msg.time}</div>
+                            <div class="mab"><button class="mabtn" onclick="showMD(event,'${msg.id}')">⋮</button></div>
+                            <div class="mre">
+                                ${(msg.re || []).map((r,i) => `<span class="re ${(r.us||[]).includes(currentUser?.id)?'act':''}" onclick="togRe('${msg.id}',${i})">${r.em} <small>${r.c}</small></span>`).join('')}
+                            </div>
+                        </div>`;
+                }
+                a.appendChild(d);
+            });
+            a.scrollTop = a.scrollHeight;
+        }
+
+        // ===== ACTIONS =====
+        function send() {
+            const inp = document.getElementById('mi');
+            const t = inp.value.trim();
+            if(!t || !currentUser) return;
+            const now = new Date();
+            const msg = {
+                id: 'm'+Date.now(),
+                uid: currentUser.id,
+                text: t,
+                time: now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0'),
+                pin: false,
+                re: []
+            };
+            msgRef.child(msg.id).set(msg);
+            inp.value = ''; inp.style.height = 'auto';
+        }
+
+        function hk(e) { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+        function ar(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; }
+
+        function showMD(e, id) {
+            e.stopPropagation();
+            selMsg = id;
+            const d = document.getElementById('mdd');
+            d.style.top = Math.min(e.clientY, window.innerHeight-220)+'px';
+            d.style.left = Math.min(e.clientX, window.innerWidth-170)+'px';
+            d.classList.add('act');
+        }
+
+        function togRe(msgId, ri) {
+            const msg = state.messages.find(m=>m.id===msgId);
+            if(!msg?.re?.[ri]) return;
+            const r = msg.re[ri];
+            r.us = r.us||[];
+            const idx = r.us.indexOf(currentUser.id);
+            if(idx>-1) { r.us.splice(idx,1); r.c--; } else { r.us.push(currentUser.id); r.c++; }
+            if(r.c<=0) msg.re.splice(ri,1);
+            msgRef.child(msgId).child('re').set(msg.re);
+        }
+
+        function pinM() {
+            const msg = state.messages.find(m=>m.id===selMsg);
+            if(!msg) return;
+            msg.pin = !msg.pin;
+            msgRef.child(selMsg).child('pin').set(msg.pin);
+            document.getElementById('mdd').classList.remove('act');
+        }
+
+        function addRe() {
+            const msg = state.messages.find(m=>m.id===selMsg);
+            if(!msg) return;
+            msg.re = msg.re||[];
+            const ex = msg.re.find(r=>r.em==='👍');
+            if(ex) { if(!ex.us.includes(currentUser.id)) { ex.us.push(currentUser.id); ex.c++; } }
+            else msg.re.push({em:'👍', c:1, us:[currentUser.id]});
+            msgRef.child(selMsg).child('re').set(msg.re);
+            document.getElementById('mdd').classList.remove('act');
+        }
+
+        function copyM() {
+            const msg = state.messages.find(m=>m.id===selMsg);
+            if(msg) navigator.clipboard.writeText(msg.text).catch(()=>{});
+            document.getElementById('mdd').classList.remove('act');
+        }
+
+        function delM() {
+            if(selMsg) msgRef.child(selMsg).remove();
+            document.getElementById('mdd').classList.remove('act');
+        }
+
+        function vote(msgId, v) {
+            const msg = state.messages.find(m=>m.id===msgId);
+            if(!msg?.ev) return;
+            const vt = msg.ev.votes;
+            Object.keys(vt).forEach(k => vt[k] = vt[k].filter(u=>u!==currentUser.id));
+            vt[v].push(currentUser.id);
+            msgRef.child(msgId).child('ev/votes').set(vt);
+        }
+
+        function updatePinBar() {
+            const b = document.getElementById('pBar');
+            const t = document.getElementById('pText');
+            const pins = state.messages.filter(m=>m.pin);
+            if(pins.length) { t.textContent = pins[pins.length-1].text; b.classList.remove('hidden'); }
+            else b.classList.add('hidden');
+        }
+
+        // ===== PANEL =====
+        function goBack() { document.getElementById('mainChat').classList.remove('act'); document.getElementById('rPanel').classList.remove('act'); }
+        function togglePanel(tab) { const p=document.getElementById('rPanel'); p.classList.toggle('act'); if(p.classList.contains('act')) swTab(tab, document.querySelectorAll('.pt')[tab==='pinned'?0:tab==='events'?1:2]); }
+        function closePanel() { document.getElementById('rPanel').classList.remove('act'); }
+        function swTab(tab, btn) {
+            document.querySelectorAll('.pt').forEach(t=>t.classList.remove('act'));
+            btn.classList.add('act');
+            const c = document.getElementById('pContent');
+            if(tab==='pinned') {
+                const pins = state.messages.filter(m=>m.pin);
+                c.innerHTML = pins.length ? pins.map(m=>{ const u=state.members[m.uid]||{name:'Участник',color:'#888'}; return `<div class="pi"><div style="font-size:12px;font-weight:600;color:${u.color};margin-bottom:4px">${u.name}</div><div class="pit">${esc(m.text)}</div></div>`; }).join('') : '<div class="ni"><div class="nii">📌</div><div>Нет идей</div></div>';
+            } else if(tab==='events') {
+                const evs = state.messages.filter(m=>m.ev);
+                c.innerHTML = evs.length ? evs.map(m=>`<div class="evi"><strong>${m.ev.type} ${esc(m.ev.title)}</strong><br><span style="font-size:12px;color:var(--txt2)">📅 ${m.ev.date} | 🕐 ${m.ev.time}<br>📍 ${esc(m.ev.loc)}</span></div>`).join('') : '<div class="ni"><div class="nii">📅</div><div>Нет встреч</div></div>';
+            } else {
+                c.innerHTML = Object.values(state.members).map(u=>`<div class="mit"><div class="mav2" style="background:${u.color}">${u.em}</div><div><div style="font-size:14px">${u.name} ${u.host?'(хост)':''}</div><div style="font-size:12px;color:var(--green)">в сети</div></div></div>`).join('');
+            }
+        }
+
+        // ===== EVENT =====
+        function openEv() { document.getElementById('evModal').classList.add('act'); }
+        function closeEv() { document.getElementById('evModal').classList.remove('act'); }
+        function mkEv() {
+            const t = document.getElementById('evT').value.trim();
+            if(!t) return;
+            const now = new Date();
+            const ev = {
+                title: t,
+                date: document.getElementById('evD').value ? new Date(document.getElementById('evD').value).toLocaleDateString('ru',{day:'numeric',month:'long'}) : 'Не указана',
+                time: document.getElementById('evTi').value || 'Не указано',
+                loc: document.getElementById('evL').value.trim() || 'Не указано',
+                de: document.getElementById('evDe').value.trim(),
+                type: document.getElementById('evTy').value,
+                votes: { yes:[], no:[], maybe:[] }
+            };
+            const msg = { id:'e'+Date.now(), uid:currentUser.id, text:'📅 '+t, time:now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0'), pin:false, re:[], ev };
+            msgRef.child(msg.id).set(msg);
+            closeEv();
+        }
+
+        // ===== EMOJI =====
+        function renderEp() {
+            const ems = '😀😂🥰😎🤔😅🥳😍🤗😇🫡😏🤩😋🤪😜👍👎❤️🔥🎉💯✨🌟💪🙌👏🤝💕🎬🎮🍕☕🎲📅🎵🏃🍿🎭🌈⭐🌙🎯🏆💡📌📍✅❌⚡🎪🎨🏖️🎸🎤🍔🍰🧁🍩🎁🎈'.match(/.{1,2}/gu);
+            document.getElementById('egrid').innerHTML = ems.map(e=>`<span class="ei" onclick="insE('${e}')">${e}</span>`).join('');
+        }
+        function toggleEp() { document.getElementById('epicker').classList.toggle('act'); }
+        function insE(e) { document.getElementById('mi').value += e; document.getElementById('mi').focus(); }
+
+        // ===== UTILS =====
+        function uid() { return 'u'+Date.now().toString(36)+Math.random().toString(36).substr(2,4); }
+        function rndColor() { return '#'+Math.floor(Math.random()*16777215).toString(16).padStart(6,'0'); }
+        function esc(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+    </script>
+</body>
+</html>
